@@ -64,9 +64,10 @@ agent:
     enable_bash_tool: true
     parse_function:
       type: function_calling
-  # history_processors:
-    # - type: cache_control
-      # last_n_messages: 2
+  history_processors:
+    - type: last_n_observations
+      n: 5
+
   model:
     temperature: 1.
     # completion_kwargs:
