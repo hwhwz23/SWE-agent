@@ -199,6 +199,7 @@ class RunBatch:
         config.output_dir.mkdir(parents=True, exist_ok=True)
         (config.output_dir / "run_batch.config.yaml").write_text(yaml.dump(config.model_dump_json(), indent=2))
         logger = get_logger("run", emoji="🏃")
+        logger.info(f"config={config}")
         logger.debug("Loading instances from %s", f"{config.instances!r}")
         instances = config.instances.get_instance_configs()
         logger.info("Loaded %d instances", len(instances))

@@ -296,6 +296,7 @@ class InstanceStats(PydanticBaseModel):
     tokens_sent: int = 0
     tokens_received: int = 0
     api_calls: int = 0
+    latency: float = 0
 
     def __add__(self, other: InstanceStats) -> InstanceStats:
         return InstanceStats(
@@ -629,26 +630,29 @@ class LiteLLMModel(AbstractModel):
         """Cost limit for the model. Returns 0 if there is no limit."""
         return self.config.per_instance_cost_limit
 
-    def _update_stats(self, *, input_tokens: int, output_tokens: int, cost: float) -> None:
+    def _update_stats(self, *, input_tokens: int, output_tokens: int, cost: float, latency: float) -> None:
         with GLOBAL_STATS_LOCK:
             GLOBAL_STATS.total_cost += cost
         self.stats.instance_cost += cost
         self.stats.tokens_sent += input_tokens
         self.stats.tokens_received += output_tokens
         self.stats.api_calls += 1
+        self.stats.latency += latency
 
         # Log updated cost values to std. err
         self.logger.debug(
             f"input_tokens={input_tokens:,}, "
             f"output_tokens={output_tokens:,}, "
             f"instance_cost={self.stats.instance_cost:.2f}, "
-            f"cost={cost:.2f}",
+            f"cost={cost:.2f}, "
+            f"latency={latency*1000:.1f}"
         )
         self.logger.debug(
             f"total_tokens_sent={self.stats.tokens_sent:,}, "
             f"total_tokens_received={self.stats.tokens_received:,}, "
             f"total_cost={GLOBAL_STATS.total_cost:.2f}, "
-            f"total_api_calls={self.stats.api_calls:,}",
+            f"total_api_calls={self.stats.api_calls:,}, "
+            f"total_latency={self.stats.latency*1000:.1f}"
         )
 
         # Check whether total cost or instance cost limits have been exceeded
@@ -712,6 +716,7 @@ class LiteLLMModel(AbstractModel):
         if self.lm_provider == "anthropic":
             completion_kwargs["max_tokens"] = self.model_max_output_tokens
         try:
+            start_time = time.time()
             response: litellm.types.utils.ModelResponse = litellm.completion(  # type: ignore
                 model=self.config.name,
                 messages=messages,
@@ -724,6 +729,7 @@ class LiteLLMModel(AbstractModel):
                 **extra_args,
                 n=n,
             )
+            latency = time.time() - start_time
         except litellm.exceptions.ContextWindowExceededError as e:
             raise ContextWindowExceededError from e
         except litellm.exceptions.ContentPolicyViolationError as e:
@@ -752,11 +758,12 @@ class LiteLLMModel(AbstractModel):
         output_tokens = 0
         for i in range(n_choices):
             output = choices[i].message.content or ""
-            output_tokens += litellm.utils.token_counter(
+            output_tokens_ = litellm.utils.token_counter(
                 text=output,
                 model=self.custom_tokenizer["identifier"] if self.custom_tokenizer is not None else self.config.name,
                 custom_tokenizer=self.custom_tokenizer,
             )
+            output_tokens += output_tokens_
             output_dict = {"message": output}
             if self.tools.use_function_calling:
                 if response.choices[i].message.tool_calls:  # type: ignore
@@ -769,8 +776,13 @@ class LiteLLMModel(AbstractModel):
                 and response.choices[i].message.thinking_blocks  # type: ignore
             ):
                 output_dict["thinking_blocks"] = response.choices[i].message.thinking_blocks  # type: ignore
+            
+            output_dict['prompt_tokens'] = input_tokens
+            output_dict['completion_tokens'] = output_tokens_
+            output_dict['llm_latency'] = latency / n_choices
+            
             outputs.append(output_dict)
-        self._update_stats(input_tokens=input_tokens, output_tokens=output_tokens, cost=cost)
+        self._update_stats(input_tokens=input_tokens, output_tokens=output_tokens, cost=cost, latency=latency)
         return outputs
 
     def _query(

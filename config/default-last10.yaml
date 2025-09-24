@@ -63,13 +63,13 @@ agent:
           </diff>
     enable_bash_tool: true
     parse_function:
-      type: function_calling
+      type: thought_action
+      # type: function_calling
   history_processors:
     - type: last_n_observations
-      n: 5
-
-  model:
-    temperature: 1.
+      n: 10   
+  # model:
+    # temperature: 0
     # completion_kwargs:
       # reasoning_effort: 'high'
 

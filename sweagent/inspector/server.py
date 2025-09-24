@@ -337,7 +337,7 @@ def get_parser():
         help="Path to dataset that was used for the trajectories. Necessary to display gold patches.",
     )
     parser.add_argument("--directory", type=str, help="Directory to serve", default=os.getcwd(), nargs="?")
-    parser.add_argument("--port", type=int, help="Port to serve", default=8000)
+    parser.add_argument("--port", type=int, help="Port to serve", default=8100)
     return parser
 
 

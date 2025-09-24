@@ -268,7 +268,7 @@ class InstancesFromHuggingFace(BaseModel, AbstractInstanceSource):
 class SWEBenchInstances(BaseModel, AbstractInstanceSource):
     """Load instances from SWE-bench."""
 
-    subset: Literal["lite", "verified", "full", "multimodal", "multilingual"] = "lite"
+    subset: Literal["lite", "verified", "full", "multimodal", "multilingual", 'verified_mini'] = "lite"
     """Subset of swe-bench to use"""
 
     # IMPORTANT: Do not call this `path`, because then if people do not specify instance.type,
@@ -308,6 +308,7 @@ class SWEBenchInstances(BaseModel, AbstractInstanceSource):
         dataset_mapping = {
             "full": "princeton-nlp/SWE-Bench",
             "verified": "princeton-nlp/SWE-Bench_Verified",
+            "verified_mini": "MariusHobbhahn/swe-bench-verified-mini",
             "lite": "princeton-nlp/SWE-Bench_Lite",
             "multimodal": "princeton-nlp/SWE-Bench_Multimodal",
             "multilingual": "swe-bench/SWE-Bench_Multilingual",
